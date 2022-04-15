@@ -1,0 +1,12 @@
+{
+  "name": "v-dom",
+  "packageManager": "yarn@3.2.0",
+  "scripts": {
+    "build": "babel v.js --out-dir out/"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.17.6",
+    "@babel/core": "^7.17.9",
+    "@babel/preset-react": "^7.16.7"
+  }
+}
