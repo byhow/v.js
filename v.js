@@ -12,7 +12,7 @@ require("@babel/core").transform("code", {
  * @returns 
  */
 function h(type, props, ...children) {
-  return { type, props, children };
+  return { type, props: props ?? {}, children };
 }
 
 /**
@@ -26,6 +26,7 @@ function createElement(node) {
     return document.createTextNode(node);
   }
   const $el = document.createElement(node.type);
+  setProps($el, node.props)
   node.children
     .map(createElement)
     .forEach($el.appendChild.bind($el));
@@ -86,6 +87,63 @@ function changed(node1, node2) {
     node1.type !== node2.type
 }
 
+/**
+ * Setting attributes wrapper
+ * 
+ * @param {HTMLElement} $target 
+ * @param {String} name 
+ * @param {*} value 
+ */
+function setProp($target, name, value) {
+  if (isCustomProp(name)) {
+    return;
+  } else if (name === 'className') {
+    // `class` is reserved in JS
+    $target.setAttribute('class', value);
+  } else if (typeof value === 'boolean') {
+    setBooleanProp($target, name, value);
+  } else {
+    $target.setAttribute(name, value);
+  }
+}
+
+/**
+ * Setting all props 
+ * 
+ * @param {HTMLElement} $target 
+ * @param {*} props 
+ */
+function setProps($target, props) {
+  Object.keys(props).forEach(name => {
+    setProp($target, name, props[name])
+  })
+}
+
+/**
+ * Set bool props since it is easier to work with
+ * 
+ * @param {HTMLElement} $target 
+ * @param {*} name 
+ * @param {*} value 
+ */
+function setBooleanProp($target, name, value) {
+  if(value) {
+    $target.setAttribute(name, value)
+    $target[name] = true;
+  } else {
+    $target[name] = false;
+  }
+}
+
+/**
+ * Edgy case
+ * @param {*} name 
+ * @returns 
+ */
+function isCustomProp(name) {
+  return false;
+}
+
 
 const a = (
   <ul className="list">
@@ -101,10 +159,21 @@ const b = (
   </ul>
 )
 
-const $root = document.getElementById('root');
-const $reload = document.getElementById('reload');
+const f = (
+  <ul style="list-style: none;">
+    <li className="item">item 1</li>
+    <li className="item">
+      <input type="checkbox" checked={true} />
+      <input type="text" disabled={false} />
+    </li>
+  </ul>
+);
 
-updateElement($root, a);
-$reload.addEventListener('click', () => {
-  updateElement($root, b, a);
-});
+const $root = document.getElementById('root');
+$root.appendChild(createElement(f));
+// const $reload = document.getElementById('reload');
+
+// updateElement($root, a);
+// $reload.addEventListener('click', () => {
+//   updateElement($root, b, a);
+// });
