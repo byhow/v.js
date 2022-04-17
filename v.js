@@ -4,6 +4,11 @@ require("@babel/core").transform("code", {
 });
 
 /**
+ * credit to @deathmood for this medium post:
+ * https://medium.com/@deathmood/how-to-write-your-own-virtual-dom-ee74acc13060
+ */ 
+
+/**
  * Create POJO from virtual dom tree
  * 
  * @param {*} type
@@ -26,7 +31,8 @@ function createElement(node) {
     return document.createTextNode(node);
   }
   const $el = document.createElement(node.type);
-  setProps($el, node.props)
+  setProps($el, node.props);
+  addEventListeners($el, node.props);
   node.children
     .map(createElement)
     .forEach($el.appendChild.bind($el));
@@ -59,6 +65,12 @@ function updateElement($parent, newNode, oldNode, index=0) {
       $parent.childNodes[index]
     );
   } else if (newNode.type) {
+    updateProps(
+      $parent.childNodes[index],
+      newNode.props,
+      oldNode.props
+    );
+
     // needs to recursively diff children as well
     const newLen = newNode.children.length;
     const oldLen = oldNode.children.length;
@@ -84,7 +96,8 @@ function updateElement($parent, newNode, oldNode, index=0) {
 function changed(node1, node2) {
   return typeof node1 !== typeof node2 || 
     typeof node1 === 'string' && node1 !== node2 ||
-    node1.type !== node2.type
+    node1.type !== node2.type ||
+    node1.props.forceUpdate; // re adding event listeners
 }
 
 /**
@@ -137,13 +150,102 @@ function setBooleanProp($target, name, value) {
 
 /**
  * Edgy case
- * @param {*} name 
+ * 
+ * @param {String} name 
  * @returns 
  */
 function isCustomProp(name) {
-  return false;
+  return isEventProp(name) || name === 'forceUpdate';
 }
 
+/**
+ * remove a boolean prop
+ * 
+ * @param {HTMLElement} $target 
+ * @param {*} name 
+ */
+function removeBooleanProp($target, name) {
+  $target.removeAttribute(name);
+  $target[name] = false;
+}
+
+/**
+ * remove a prop
+ * 
+ * @param {HTMLElement} $target 
+ * @param {*} name 
+ * @param {*} value 
+ * @returns 
+ */
+function removeProp($target, name, value) {
+  if (isCustomProp(name)) {
+    return;
+  } else if (name === 'className') {
+    $target.removeAttribute('class');
+  } else if (typeof value === 'boolean') {
+    removeBooleanProp($target, name);
+  } else {
+    $target.removeAttribute(name);
+  }
+}
+
+/**
+ * update a single prop
+ * 
+ * @param {HTMLElement} $target 
+ * @param {*} name 
+ * @param {*} newVal 
+ * @param {*} oldVal 
+ */
+function updateProp($target, name, newVal, oldVal) {
+  if (!newVal) {
+    removeProp($target, name, oldVal)
+  } else if (!oldVal || newVal !== oldVal) {
+    setProp($target, name, newVal);
+  }
+}
+
+function updateProps($target, newProps, oldProps = {}) {
+  // const props = Object.assign({}, newProps, oldProps); // this will merge undefined
+  const props = {...newProps, ...oldProps}; // spread gets rid of undefined
+  Object.keys(props).forEach(name => {
+    updateProp($target, name, newProps[name], oldProps[name]);
+  })
+}
+
+// handling events
+/**
+ * check if it is an event
+ * 
+ * @param {String} name 
+ * @returns 
+ */
+const isEventProp = (name) => /^on/.test(name);
+
+/**
+ * only take event name
+ * 
+ * @param {String} name 
+ * @returns 
+ */
+const extractEventName = (name) => name.slice(2).toLowerCase();
+
+/**
+ * add virtual dom event to real dom nodes
+ * 
+ * @param {HTMLElement} $target 
+ * @param {*} props 
+ */
+function addEventListeners($target, props) {
+  Object.keys(props).forEach(name => {
+    if(isEventProp(name)) {
+      $target.addEventListener(
+        extractEventName(name),
+        props[name]
+      )
+    }
+  })
+}
 
 const a = (
   <ul className="list">
